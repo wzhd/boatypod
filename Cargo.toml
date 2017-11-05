@@ -1,0 +1,6 @@
+[package]
+name = "boatypod"
+version = "0.1.0"
+authors = ["wzhd"]
+
+[dependencies]
