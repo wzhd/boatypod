@@ -1,3 +1,7 @@
+extern crate boatypod;
+
 fn main() {
-    println!("Hello, world!");
+    if let Err(_) = boatypod::run() {
+        eprintln!("Error.");
+    }
 }
