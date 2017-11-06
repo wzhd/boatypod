@@ -1,5 +1,8 @@
 #[macro_use]
 extern crate combine;
+extern crate structopt;
+#[macro_use]
+extern crate structopt_derive;
 
 use std::env;
 use std::error::Error;
@@ -12,13 +15,17 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 
+use structopt::StructOpt;
+
+mod args;
 mod parser;
 
 pub fn run() -> Result<(), Box<Error>> {
+    let opt: args::Opt = args::Opt::from_args();
     let file = find_queue_file()?;
     let items = get_queue_items(&file)?;
-    for (item,_) in items.iter().zip(0..2) {
-        if let Err(e) = process_item(&item) {
+    for (item,_) in items.iter().zip(0..opt.num) {
+        if let Err(e) = process_item(&item, opt.progress) {
             eprintln!("Error while processing item: {:?}.", e);
         } else if let Err(e) = remove_from_queue(&item, &file) {
             eprintln!("Error while removing item from queue: {:?}.", e);
@@ -27,7 +34,7 @@ pub fn run() -> Result<(), Box<Error>> {
     Ok(())
 }
 
-fn process_item(item: &DownloadItem)-> io::Result<()> {
+fn process_item(item: &DownloadItem, show_progress: bool)-> io::Result<()> {
     let path = &item.path;
     println!("Downloading {} from {}", path.to_string_lossy(), item.uri);
     let parent = path.parent();
@@ -39,7 +46,7 @@ fn process_item(item: &DownloadItem)-> io::Result<()> {
         return Err(io::Error::new(io::ErrorKind::NotFound, "Can't create output directory."))
     }
     let mut child = Command::new("curl")
-        .arg("--progress-bar")
+        .arg(if show_progress { "--progress-bar" } else { "--silent" })
         .arg("--location") // follow redirects
         .arg("-C").arg("-")
         .arg("-o").arg(path)
