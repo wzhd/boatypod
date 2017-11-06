@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate combine;
+
 use std::env;
 use std::error::Error;
 use std::fs;
@@ -8,6 +11,8 @@ use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
+
+mod parser;
 
 pub fn run() -> Result<(), Box<Error>> {
     let file = find_queue_file()?;
@@ -77,17 +82,21 @@ struct DownloadItem {
 
 impl DownloadItem {
     fn new(line: &str)-> Option<DownloadItem> {
-        let item: Vec<&str> = line.splitn(2, ' ').collect();
-        if item.len() != 2 {
-            return None;
+        if let Some(items) = parser::tokenize_string(line) {
+            if items.len() >= 2 {
+                let uri = &items[0];
+                let out = &items[1];
+                let path = Path::new(out);
+                Some(DownloadItem {
+                    uri: uri.to_string(),
+                    path: path.to_owned(),
+                })
+            } else {
+                None
+            }
+        } else {
+            None
         }
-        let uri = item[0];
-        let out = item[1];
-        let path = Path::new(out.trim_left_matches('"').trim_right_matches('"'));
-        Some(DownloadItem {
-            uri: uri.to_string(),
-            path: path.to_owned(),
-        })
     }
 }
 
