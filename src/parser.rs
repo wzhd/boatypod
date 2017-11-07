@@ -3,11 +3,6 @@ use combine::char::space;
 use combine::combinator::parser;
 use combine::primitives::Consumed;
 
-#[cfg(feature = "std")]
-use combine::state::SourcePosition;
-#[cfg(feature = "std")]
-use combine::easy;
-
 fn char_in_quotes<I>(input: I) -> ParseResult<char, I>
     where I: Stream<Item = char>,
           I::Error: ParseError<I::Item, I::Range, I::Position> {
@@ -65,11 +60,7 @@ parser!{
 
 pub fn tokenize_string(text: &str)-> Option<Vec<String>> {
     let result = tokenize_quoted().easy_parse(State::new(text)).map(|t| t.0);
-    if let Ok(ts) = result {
-        Some(ts)
-    } else {
-        None
-    }
+    result.ok()
 }
 
 #[test]

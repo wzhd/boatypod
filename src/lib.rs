@@ -89,7 +89,7 @@ struct DownloadItem {
 
 impl DownloadItem {
     fn new(line: &str)-> Option<DownloadItem> {
-        if let Some(items) = parser::tokenize_string(line) {
+        parser::tokenize_string(line).and_then(|items| {
             if items.len() >= 2 {
                 let uri = &items[0];
                 let out = &items[1];
@@ -101,9 +101,7 @@ impl DownloadItem {
             } else {
                 None
             }
-        } else {
-            None
-        }
+        })
     }
 }
 
