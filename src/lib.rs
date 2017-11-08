@@ -1,10 +1,12 @@
 #[macro_use]
 extern crate combine;
+#[macro_use]
+extern crate error_chain;
 extern crate structopt;
 #[macro_use]
 extern crate structopt_derive;
+extern crate xdg;
 
-use std::env;
 use std::error::Error;
 use std::fs;
 use std::fs::File;
@@ -26,7 +28,7 @@ pub fn run() -> Result<(), Box<Error>> {
     let items = get_queue_items(&file)?;
     for (item,_) in items.iter().zip(0..opt.num) {
         if let Err(e) = process_item(&item, opt.progress) {
-            eprintln!("Error while processing item: {:?}.", e);
+            eprintln!("Error while processing item: {}.", e.description());
         } else if let Err(e) = remove_from_queue(&item, &file) {
             eprintln!("Error while removing item from queue: {:?}.", e);
         }
@@ -34,7 +36,7 @@ pub fn run() -> Result<(), Box<Error>> {
     Ok(())
 }
 
-fn process_item(item: &DownloadItem, show_progress: bool)-> io::Result<()> {
+fn process_item(item: &DownloadItem, show_progress: bool)-> Result<(), Box<Error>> {
     let path = &item.path;
     println!("Downloading {} from {}", path.to_string_lossy(), item.uri);
     let parent = path.parent();
@@ -43,7 +45,7 @@ fn process_item(item: &DownloadItem, show_progress: bool)-> io::Result<()> {
             let _ = fs::DirBuilder::new().recursive(true).create(&dir)?;
         }
     } else {
-        return Err(io::Error::new(io::ErrorKind::NotFound, "Can't create output directory."))
+        bail!("Can't create output directory.")
     }
     let mut child = Command::new("curl")
         .arg(if show_progress { "--progress-bar" } else { "--silent" })
@@ -56,7 +58,7 @@ fn process_item(item: &DownloadItem, show_progress: bool)-> io::Result<()> {
     if ecode.success() {
         Ok(())
     } else {
-        Err(io::Error::new(io::ErrorKind::Other, "Downloader returned failure"))
+        bail!("Downloader returned failure")
     }
 }
 
@@ -113,19 +115,15 @@ fn get_queue_items(file: &PathBuf) -> Result<Vec<DownloadItem>, Box<Error>> {
     Ok(content.lines().filter_map(|line| DownloadItem::new(line)).collect())
 }
 
-fn find_queue_file() -> Result<PathBuf, &'static str> {
-    let home: String = match env::var("HOME") {
-        Ok(path) => path,
-        Err(_) => return Err("Can't find user home directory.")
-    };
-    let data_home = Path::new(&home).join(".local").join("share");
-    let newsboat_queue = data_home.join("newsboat").join("queue");
-    if newsboat_queue.is_file() {
-        return Ok(newsboat_queue);
+fn find_queue_file() -> Result<PathBuf, Box<Error>> {
+    let xdg_dirs = xdg::BaseDirectories::with_prefix("newsboat")?;
+    if let Some(file) = xdg_dirs.find_data_file("queue") {
+        return Ok(file);
     }
-    let newsbeuter_queue = data_home.join("newsbeuter").join("queue");
-    if newsbeuter_queue.is_file() {
-        return Ok(newsbeuter_queue);
+    let xdg_dirs = xdg::BaseDirectories::with_prefix("newsbeuter")?;
+    if let Some(file) = xdg_dirs.find_data_file("queue") {
+        return Ok(file);
     }
-    return Err("No podcast download queue found.");
+    Error
+    return Err(io::Error::new(io::ErrorKind::NotFound, "No podcast download queue found."));
 }
