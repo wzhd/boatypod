@@ -116,14 +116,9 @@ fn get_queue_items(file: &PathBuf) -> Result<Vec<DownloadItem>, Box<Error>> {
 }
 
 fn find_queue_file() -> Result<PathBuf, Box<Error>> {
-    let xdg_dirs = xdg::BaseDirectories::with_prefix("newsboat")?;
-    if let Some(file) = xdg_dirs.find_data_file("queue") {
-        return Ok(file);
-    }
-    let xdg_dirs = xdg::BaseDirectories::with_prefix("newsbeuter")?;
-    if let Some(file) = xdg_dirs.find_data_file("queue") {
-        return Ok(file);
-    }
-    Error
-    return Err(io::Error::new(io::ErrorKind::NotFound, "No podcast download queue found."));
+    let boat_path = xdg::BaseDirectories::with_prefix("newsboat")?;
+    let beuter_path = xdg::BaseDirectories::with_prefix("newsbeuter")?;
+    boat_path.find_data_file("queue").or_else(| | {
+        beuter_path.find_data_file("queue")
+    }).ok_or( "No podcast download queue found.".into())
 }
